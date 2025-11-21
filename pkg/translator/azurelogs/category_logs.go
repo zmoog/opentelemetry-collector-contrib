@@ -31,6 +31,7 @@ const (
 	categoryAppServiceIPSecAuditLogs           = "AppServiceIPSecAuditLogs"
 	categoryAppServicePlatformLogs             = "AppServicePlatformLogs"
 	categoryRecommendation                     = "Recommendation"
+	categoryPolicy                             = "Policy"
 
 	// attributeAzureRef holds the request tracking reference, also
 	// placed in the request header "X-Azure-Ref".
@@ -85,6 +86,11 @@ const (
 	attributeAzureRecommendationType          = "azure.recommendation.type"
 	attributeAzureRecommendationSchemaVersion = "azure.recommendation.schema_version"
 	attributeAzureRecommendationLink          = "azure.recommendation.link"
+
+	// Policy specific attributes
+	attributeAzurePolicyIsComplianceCheck = "azure.policy.compliance_check"
+	attributeAzurePolicyAncestors         = "azure.policy.ancestors"
+	attributeAzurePolicyHierarchy         = "azure.policy.hierarchy"
 )
 
 var (
@@ -120,6 +126,8 @@ func addRecordAttributes(category string, data []byte, record plog.LogRecord) er
 		err = addAppServicePlatformLogsProperties(data, record)
 	case categoryRecommendation:
 		err = addRecommendationLogProperties(data, record)
+	case categoryPolicy:
+		err = addPolicyLogProperties(data, record)
 	default:
 		err = errUnsupportedCategory
 	}
@@ -149,6 +157,12 @@ func putStr(field, value string, record plog.LogRecord) {
 		// ignore
 	default:
 		record.Attributes().PutStr(field, value)
+	}
+}
+
+func putBool(field, value string, record plog.LogRecord) {
+	if b, err := strconv.ParseBool(value); err == nil {
+		record.Attributes().PutBool(field, b)
 	}
 }
 
@@ -569,6 +583,76 @@ func addAppServiceIPSecAuditLogsProperties(_ []byte, _ plog.LogRecord) error {
 func addAppServicePlatformLogsProperties(_ []byte, _ plog.LogRecord) error {
 	// TODO @constanca-m implement this the same way as addAzureCdnAccessLogProperties
 	return errStillToImplement
+}
+
+type policyElement struct {
+	DefinitionId             string   `json:"policyDefinitionId"`
+	SetDefinitionId          string   `json:"policySetDefinitionId"`
+	ReferenceId              string   `json:"policyDefinitionReferenceId"`
+	SetDefinitionName        string   `json:"policySetDefinitionName"`
+	SetDefinitionDisplayName string   `json:"policySetDefinitionDisplayName"`
+	SetDefinitionVersion     string   `json:"policySetDefinitionVersion"`
+	DefinitionName           string   `json:"policyDefinitionName"`
+	DefinitionDisplayName    string   `json:"policyDefinitionDisplayName"`
+	DefinitionVersion        string   `json:"policyDefinitionVersion"`
+	DefinitionEffect         string   `json:"policyDefinitionEffect"`
+	AssignmentId             string   `json:"policyAssignmentId"`
+	AssignmentName           string   `json:"policyAssignmentName"`
+	AssignmentDisplayName    string   `json:"policyAssignmentDisplayName"`
+	AssignmentScope          string   `json:"policyAssignmentScope"`
+	ExemptionIds             []string `json:"policyExemptionIds"`
+	AssignmentIds            []string `json:"policyAssignmentIds"`
+}
+
+type policyLogProperties struct {
+	IsComplianceCheck string `json:"isComplianceCheck"`
+	ResourceLocation  string `json:"resourceLocation"`
+	Ancestors         string `json:"ancestors"`
+	Policies          string `json:"policies"`
+	Hierarchy         string `json:"hierarchy"`
+}
+
+func addPolicyLogProperties(data []byte, record plog.LogRecord) error {
+	var properties policyLogProperties
+	if err := gojson.Unmarshal(data, &properties); err != nil {
+		return fmt.Errorf("failed to parse Policy properties: %w", err)
+	}
+
+	// check if Policies is a string and unmarshal the embedded JSON
+	// object in the `policyElement` struct
+	var policies []policyElement
+	if err := gojson.Unmarshal([]byte(properties.Policies), &policies); err != nil {
+		return fmt.Errorf("failed to parse Policy properties: %w", err)
+	}
+
+	putBool(attributeAzurePolicyIsComplianceCheck, properties.IsComplianceCheck, record)
+	putStr(azureLocation, properties.ResourceLocation, record)
+	putStr(attributeAzurePolicyAncestors, properties.Ancestors, record)
+	putStr(attributeAzurePolicyHierarchy, properties.Hierarchy, record)
+
+	// Add policies as a slice of maps
+	if len(policies) > 0 {
+		policiesSlice := record.Attributes().PutEmptySlice("azure.policy.policies")
+		for _, p := range policies {
+			policyMap := policiesSlice.AppendEmpty().SetEmptyMap()
+			policyMap.PutStr("definition.id", p.DefinitionId)
+			policyMap.PutStr("definition.name", p.DefinitionName)
+			policyMap.PutStr("definition.display_name", p.DefinitionDisplayName)
+			policyMap.PutStr("definition.version", p.DefinitionVersion)
+			policyMap.PutStr("definition.effect", p.DefinitionEffect)
+			policyMap.PutStr("definition.reference_id", p.ReferenceId)
+			policyMap.PutStr("set_definition.id", p.SetDefinitionId)
+			policyMap.PutStr("set_definition.name", p.SetDefinitionName)
+			policyMap.PutStr("set_definition.display_name", p.SetDefinitionDisplayName)
+			policyMap.PutStr("set_definition.version", p.SetDefinitionVersion)
+			policyMap.PutStr("assignment.id", p.AssignmentId)
+			policyMap.PutStr("assignment.name", p.AssignmentName)
+			policyMap.PutStr("assignment.display_name", p.AssignmentDisplayName)
+			policyMap.PutStr("assignment.scope", p.AssignmentScope)
+		}
+	}
+
+	return nil
 }
 
 // recommendationLogProperties represents the properties field of a Recommendation activity log.

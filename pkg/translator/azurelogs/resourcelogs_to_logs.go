@@ -23,6 +23,7 @@ const (
 	// Constants for OpenTelemetry Specs
 	scopeName = "otelcol/azureresourcelogs"
 
+	// Constants for Azure Log Record attributes
 	attributeAzureCategory          = "azure.category"
 	attributeAzureCorrelationID     = "azure.correlation_id"
 	attributeAzureOperationName     = "azure.operation.name"
@@ -30,12 +31,14 @@ const (
 	attributeAzureResultType        = "azure.result.type"
 	attributeAzureResultSignature   = "azure.result.signature"
 	attributeAzureResultDescription = "azure.result.description"
+	attributeAzureDuration          = "azure.duration"
 
 	// Constants for Azure Log Record body fields
 	azureCategory          = "category"
 	azureCorrelationID     = "correlation.id"
 	azureDuration          = "duration"
 	azureIdentity          = "identity"
+	azureLocation          = "location"
 	azureOperationName     = "operation.name"
 	azureOperationVersion  = "operation.version"
 	azureProperties        = "properties"
@@ -45,7 +48,8 @@ const (
 	azureTenantID          = "tenant.id"
 
 	// Identity claims
-	identityClaimEmail = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
+	identityClaimEmail    = "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
+	identityClaimObjectID = "http://schemas.microsoft.com/identity/claims/objectidentifier"
 )
 
 var errMissingTimestamp = errors.New("missing timestamp")
@@ -237,6 +241,11 @@ func addCommonSchema(log *azureLogRecord, record plog.LogRecord) {
 	putStrPtr(attributeAzureResultSignature, log.ResultSignature, record)
 	putStrPtr(attributeAzureResultDescription, log.ResultDescription, record)
 	putStrPtr(string(conventions.NetworkPeerAddressKey), log.CallerIPAddress, record)
+	if log.DurationMs != nil {
+		if duration, err := strconv.ParseInt(log.DurationMs.String(), 10, 64); err == nil {
+			record.Attributes().PutInt(attributeAzureDuration, duration)
+		}
+	}
 
 	// Extract identity/claims for activity logs
 	if log.Identity != nil {
@@ -351,12 +360,54 @@ func addIdentityAttributes(identity any, record plog.LogRecord) {
 		return
 	}
 
+	// Extract authorization details
+	if authorization, ok := identityMap["authorization"].(map[string]any); ok {
+		if scope, ok := authorization["scope"].(string); ok && scope != "" {
+			record.Attributes().PutStr("azure.identity.authorization.scope", scope)
+		}
+		if action, ok := authorization["action"].(string); ok && action != "" {
+			record.Attributes().PutStr("azure.identity.authorization.action", action)
+		}
+		// Extract evidence details
+		if evidence, ok := authorization["evidence"].(map[string]any); ok {
+			if role, ok := evidence["role"].(string); ok && role != "" {
+				record.Attributes().PutStr("azure.identity.authorization.evidence.role", role)
+			}
+			if principalType, ok := evidence["principalType"].(string); ok && principalType != "" {
+				record.Attributes().PutStr("azure.identity.authorization.evidence.principal_type", principalType)
+			}
+			if principalID, ok := evidence["principalId"].(string); ok && principalID != "" {
+				record.Attributes().PutStr("azure.identity.authorization.evidence.principal_id", principalID)
+			}
+			if roleAssignmentScope, ok := evidence["roleAssignmentScope"].(string); ok && roleAssignmentScope != "" {
+				record.Attributes().PutStr("azure.identity.authorization.evidence.role_assignment_scope", roleAssignmentScope)
+			}
+			if roleAssignmentID, ok := evidence["roleAssignmentId"].(string); ok && roleAssignmentID != "" {
+				record.Attributes().PutStr("azure.identity.authorization.evidence.role_assignment_id", roleAssignmentID)
+			}
+			if roleDefinitionID, ok := evidence["roleDefinitionId"].(string); ok && roleDefinitionID != "" {
+				record.Attributes().PutStr("azure.identity.authorization.evidence.role_definition_id", roleDefinitionID)
+			}
+		}
+	}
+
 	// Extract known claims details we want to include in the
 	// log record.
 	if claims, ok := identityMap["claims"].(map[string]any); ok {
-		// Extract common claim fields
 		if email, ok := claims[identityClaimEmail].(string); ok && email != "" {
 			record.Attributes().PutStr(string(conventions.UserEmailKey), email)
+		}
+		if name, ok := claims["name"].(string); ok && name != "" {
+			record.Attributes().PutStr(string(conventions.UserNameKey), name)
+		}
+		if appID, ok := claims["appid"].(string); ok && appID != "" {
+			record.Attributes().PutStr("azure.identity.claims.app_id", appID)
+		}
+		if idtyp, ok := claims["idtyp"].(string); ok && idtyp != "" {
+			record.Attributes().PutStr("azure.identity.claims.identity_type", idtyp)
+		}
+		if objectID, ok := claims[identityClaimObjectID].(string); ok && objectID != "" {
+			record.Attributes().PutStr("azure.identity.claims.object_id", objectID)
 		}
 	}
 }
