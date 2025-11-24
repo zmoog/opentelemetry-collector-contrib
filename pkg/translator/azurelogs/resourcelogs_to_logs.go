@@ -207,7 +207,7 @@ func asTimestamp(s string, formats ...string) (pcommon.Timestamp, error) {
 // valid, then the 'Unspecified' value is returned.
 func asSeverity(number json.Number) plog.SeverityNumber {
 	switch number.String() {
-	case "Informational":
+	case "Informational", "Information":
 		return plog.SeverityNumberInfo
 	case "Warning":
 		return plog.SeverityNumberWarn

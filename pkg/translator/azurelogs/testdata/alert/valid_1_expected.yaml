@@ -1,0 +1,62 @@
+resourceLogs:
+  - resource:
+      attributes:
+        - key: cloud.provider
+          value:
+            stringValue: azure
+        - key: cloud.resource_id
+          value:
+            stringValue: /SUBSCRIPTIONS/12CABCB4-86E8-404F-A3D2-1DC9982F45CA/RESOURCEGROUPS/MYRESOURCEGROUP/PROVIDERS/MICROSOFT.CLASSICCOMPUTE/DOMAINNAMES/MYRESOURCEGROUP/SLOTS/PRODUCTION/ROLES/EVENT.BACKGROUNDJOBSWORKER.RAZZLE
+        - key: event.name
+          value:
+            stringValue: az.resource.log
+    scopeLogs:
+      - logRecords:
+          - attributes:
+              - key: azure.category
+                value:
+                  stringValue: Alert
+              - key: azure.correlation_id
+                value:
+                  stringValue: /subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/resourceGroups/myResourceGroup/providers/microsoft.insights/alertrules/myalert/incidents/L3N1YnNjcmlwdGlvbnMvZGY2MDJjOWMtN2FhMC00MDdkLWE2ZmItZWIyMGM4YmQxMTkyL3Jlc291cmNlR3JvdXBzL0NzbUV2ZW50RE9HRk9PRC1XZXN0VVMvcHJvdmlkZXJzL21pY3Jvc29mdC5pbnNpZ2h0cy9hbGVydHJ1bGVzL215YWxlcnQwNjM2MzYyMjU4NTM1MjIxOTIw
+              - key: azure.operation.name
+                value:
+                  stringValue: MICROSOFT.INSIGHTS/ALERTRULES/RESOLVED/ACTION
+              - key: azure.result.type
+                value:
+                  stringValue: Resolved
+              - key: azure.alert.rule.uri
+                value:
+                  stringValue: /subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/resourceGroups/myResourceGroup/providers/microsoft.insights/alertrules/myalert
+              - key: azure.alert.rule.name
+                value:
+                  stringValue: myalert
+              - key: azure.alert.threshold
+                value:
+                  stringValue: "100000"
+              - key: azure.alert.window_size_minutes
+                value:
+                  stringValue: "5"
+              - key: azure.alert.aggregation
+                value:
+                  stringValue: Average
+              - key: azure.alert.operator
+                value:
+                  stringValue: LessThan
+              - key: azure.alert.metric.name
+                value:
+                  stringValue: Disk read
+              - key: azure.alert.metric.unit
+                value:
+                  stringValue: Count
+              - key: cloud.account.id
+                value:
+                  stringValue: aa40685b-417d-4664-b4ec-8f7640719adb
+            body: {}
+            observedTimeUnixNano: "1763735822876518000"
+            severityNumber: 9
+            severityText: Informational
+            timeUnixNano: "1500629053522192000"
+        scope:
+          name: otelcol/azureresourcelogs
+          version: 1.2.3

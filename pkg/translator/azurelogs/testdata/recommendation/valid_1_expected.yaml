@@ -52,6 +52,9 @@ resourceLogs:
               - key: azure.result.description
                 value:
                   stringValue: "A new recommendation is available."
+              - key: azure.duration
+                value:
+                  intValue: "10"
               - key: network.peer.address
                 value:
                   stringValue: 0.0.0.0

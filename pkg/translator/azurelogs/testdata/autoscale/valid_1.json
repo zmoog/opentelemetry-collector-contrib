@@ -1,0 +1,28 @@
+{
+    "records": [
+        {
+            "Level": 5,
+            "category": "Autoscale",
+            "location": "global",
+            "resourceId": "/SUBSCRIPTIONS/12CABCB4-86E8-404F-A3D2-1DC9982F45CA/RESOURCEGROUPS/MYRESOURCEGROUP/PROVIDERS/MICROSOFT.INSIGHTS/AUTOSCALESETTINGS/MYRESOURCEGROUP-PRODUCTION-MYRESOURCE-MYRESOURCEGROUP",
+            "time": "2017-07-21T01:00:51.8681572Z",
+            "level": "Informational",
+            "correlationId": "dddd3333-ee44-5555-66ff-777777aaaaaa",
+            "operationName": "MICROSOFT.INSIGHTS/AUTOSCALESETTINGS/SCALEDOWN/ACTION",
+            "resultType": "Succeeded",
+            "properties": {
+                "Description": "The autoscale engine attempting to scale resource '/subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/resourceGroups/myResourceGroup/providers/Microsoft.ClassicCompute/domainNames/myResourceGroup/slots/Production/roles/myResource' from 3 instances count to 2 instances count.",
+                "ResourceName": "/subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/resourceGroups/myResourceGroup/providers/Microsoft.ClassicCompute/domainNames/myResourceGroup/slots/Production/roles/myResource",
+                "OldInstancesCount": "3",
+                "NewInstancesCount": "2",
+                "LastScaleActionTime": "Fri, 21 Jul 2017 01:00:51 GMT"
+            },
+            "tenantId": "aa40685b-417d-4664-b4ec-8f7640719adb",
+            "identity": {
+                "claims": {
+                    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/spn": "Microsoft.Insights/autoscaleSettings"
+                }
+            }
+        }
+    ]
+}

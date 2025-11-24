@@ -1,0 +1,95 @@
+resourceLogs:
+  - resource:
+      attributes:
+        - key: cloud.provider
+          value:
+            stringValue: azure
+        - key: cloud.resource_id
+          value:
+            stringValue: /SUBSCRIPTIONS/12CABCB4-86E8-404F-A3D2-1DC9982F45CA/PROVIDERS/MICROSOFT.INSIGHTS/DIAGNOSTICSETTINGS/MBRANCA-COLLECT-SAMPLE-LOGS
+        - key: event.name
+          value:
+            stringValue: az.resource.log
+    scopeLogs:
+      - logRecords:
+          - attributes:
+              - key: azure.category
+                value:
+                  stringValue: Administrative
+              - key: azure.correlation_id
+                value:
+                  stringValue: 14910fd5-75d0-4cbd-8a7d-37b75c5a5db4
+              - key: azure.operation.name
+                value:
+                  stringValue: MICROSOFT.INSIGHTS/DIAGNOSTICSETTINGS/WRITE
+              - key: azure.result.type
+                value:
+                  stringValue: Start
+              - key: azure.result.signature
+                value:
+                  stringValue: Started.
+              - key: azure.duration
+                value:
+                  intValue: "0"
+              - key: azure.administrative.entity
+                value:
+                  stringValue: /subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/providers/microsoft.insights/diagnosticSettings/mbranca-collect-sample-logs
+              - key: azure.administrative.message
+                value:
+                  stringValue: microsoft.insights/diagnosticSettings/write
+              - key: azure.administrative.hierarchy
+                value:
+                  stringValue: aa40685b-417d-4664-b4ec-8f7640719adb/12cabcb4-86e8-404f-a3d2-1dc9982f45ca
+              - key: azure.identity.authorization.scope
+                value:
+                  stringValue: /subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/providers/microsoft.insights/diagnosticSettings/mbranca-collect-sample-logs
+              - key: azure.identity.authorization.action
+                value:
+                  stringValue: microsoft.insights/diagnosticSettings/write
+              - key: azure.identity.authorization.evidence.role
+                value:
+                  stringValue: Owner
+              - key: azure.identity.authorization.evidence.role_assignment_scope
+                value:
+                  stringValue: /subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca
+              - key: azure.identity.authorization.evidence.role_assignment_id
+                value:
+                  stringValue: 6bb224c7ac884522bc9b27c1408e591b
+              - key: azure.identity.authorization.evidence.role_definition_id
+                value:
+                  stringValue: 8e3af657a8ff443ca75c2fe8c4bcb635
+              - key: azure.identity.authorization.evidence.principal_id
+                value:
+                  stringValue: 4b7ef3e33d384006a7bf898c57dc9c23
+              - key: azure.identity.authorization.evidence.principal_type
+                value:
+                  stringValue: User
+              - key: azure.identity.claims.app_id
+                value:
+                  stringValue: c44b4083-3bb0-49c1-b47d-974e53cbdf3c
+              - key: azure.identity.claims.identity_type
+                value:
+                  stringValue: user
+              - key: azure.identity.claims.object_id
+                value:
+                  stringValue: 4b7ef3e3-3d38-4006-a7bf-898c57dc9c23
+              - key: user.email
+                value:
+                  stringValue: maurizio.branca@elastic.co
+              - key: user.name
+                value:
+                  stringValue: Maurizio Branca
+              - key: network.peer.address
+                value:
+                  stringValue: 87.2.225.242
+              - key: cloud.account.id
+                value:
+                  stringValue: aa40685b-417d-4664-b4ec-8f7640719adb
+            body: {}
+            observedTimeUnixNano: "1763735822876518000"
+            severityNumber: 9
+            severityText: Information
+            timeUnixNano: "1744712192987344100"
+        scope:
+          name: otelcol/azureresourcelogs
+          version: 1.2.3

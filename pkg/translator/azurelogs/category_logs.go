@@ -32,6 +32,10 @@ const (
 	categoryAppServicePlatformLogs             = "AppServicePlatformLogs"
 	categoryRecommendation                     = "Recommendation"
 	categoryPolicy                             = "Policy"
+	categoryAlert                              = "Alert"
+	categoryAutoscale                          = "Autoscale"
+	categorySecurity                           = "Security"
+	categoryAdministrative                     = "Administrative"
 
 	// attributeAzureRef holds the request tracking reference, also
 	// placed in the request header "X-Azure-Ref".
@@ -91,6 +95,42 @@ const (
 	attributeAzurePolicyIsComplianceCheck = "azure.policy.compliance_check"
 	attributeAzurePolicyAncestors         = "azure.policy.ancestors"
 	attributeAzurePolicyHierarchy         = "azure.policy.hierarchy"
+
+	// Alert specific attributes
+	attributeAzureAlertRuleUri           = "azure.alert.rule.uri"
+	attributeAzureAlertRuleName          = "azure.alert.rule.name"
+	attributeAzureAlertRuleDescription   = "azure.alert.rule.description"
+	attributeAzureAlertThreshold         = "azure.alert.threshold"
+	attributeAzureAlertWindowSize        = "azure.alert.window_size_minutes"
+	attributeAzureAlertAggregation       = "azure.alert.aggregation"
+	attributeAzureAlertOperator          = "azure.alert.operator"
+	attributeAzureAlertMetricName        = "azure.alert.metric.name"
+	attributeAzureAlertMetricUnit        = "azure.alert.metric.unit"
+
+	// Autoscale specific attributes
+	attributeAzureAutoscaleDescription      = "azure.autoscale.description"
+	attributeAzureAutoscaleResourceName     = "azure.autoscale.resource.name"
+	attributeAzureAutoscaleOldInstances     = "azure.autoscale.old_instances_count"
+	attributeAzureAutoscaleNewInstances     = "azure.autoscale.new_instances_count"
+	attributeAzureAutoscaleLastScaleAction  = "azure.autoscale.last_scale_action_time"
+
+	// Security specific attributes
+	attributeAzureSecurityAccountLogonId   = "azure.security.account_logon_id"
+	attributeAzureSecurityCommandLine      = "azure.security.command_line"
+	attributeAzureSecurityDomainName       = "azure.security.domain_name"
+	attributeAzureSecurityParentProcess    = "azure.security.process.parent"
+	attributeAzureSecurityParentProcessId  = "azure.security.process.parent.id"
+	attributeAzureSecurityProcessId        = "azure.security.process.id"
+	attributeAzureSecurityProcessName      = "azure.security.process.name"
+	attributeAzureSecurityUserName         = "azure.security.user.name"
+	attributeAzureSecurityUserSID          = "azure.security.user.sid"
+	attributeAzureSecurityActionTaken      = "azure.security.action_taken"
+	attributeAzureSecuritySeverity         = "azure.security.severity"
+
+	// Administrative specific attributes
+	attributeAzureAdministrativeEntity     = "azure.administrative.entity"
+	attributeAzureAdministrativeMessage    = "azure.administrative.message"
+	attributeAzureAdministrativeHierarchy  = "azure.administrative.hierarchy"
 )
 
 var (
@@ -128,6 +168,14 @@ func addRecordAttributes(category string, data []byte, record plog.LogRecord) er
 		err = addRecommendationLogProperties(data, record)
 	case categoryPolicy:
 		err = addPolicyLogProperties(data, record)
+	case categoryAlert:
+		err = addAlertLogProperties(data, record)
+	case categoryAutoscale:
+		err = addAutoscaleLogProperties(data, record)
+	case categorySecurity:
+		err = addSecurityLogProperties(data, record)
+	case categoryAdministrative:
+		err = addAdministrativeLogProperties(data, record)
 	default:
 		err = errUnsupportedCategory
 	}
@@ -681,6 +729,134 @@ func addRecommendationLogProperties(data []byte, record plog.LogRecord) error {
 	putStr(attributeAzureRecommendationType, properties.RecommendationType, record)
 	putStr(attributeAzureRecommendationSchemaVersion, properties.RecommendationSchemaVersion, record)
 	putStr(attributeAzureRecommendationLink, properties.RecommendationResourceLink, record)
+
+	return nil
+}
+
+// alertLogProperties represents the properties field of an Alert activity log.
+// See: https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/activity-log-schema#alert-category
+type alertLogProperties struct {
+	RuleUri              string `json:"RuleUri"`
+	RuleName             string `json:"RuleName"`
+	RuleDescription      string `json:"RuleDescription"`
+	Threshold            string `json:"Threshold"`
+	WindowSizeInMinutes  string `json:"WindowSizeInMinutes"`
+	Aggregation          string `json:"Aggregation"`
+	Operator             string `json:"Operator"`
+	MetricName           string `json:"MetricName"`
+	MetricUnit           string `json:"MetricUnit"`
+}
+
+// addAlertLogProperties parses Alert activity logs
+// and maps them to OpenTelemetry semantic conventions.
+// See: https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/activity-log-schema#alert-category
+func addAlertLogProperties(data []byte, record plog.LogRecord) error {
+	var properties alertLogProperties
+	if err := gojson.Unmarshal(data, &properties); err != nil {
+		return fmt.Errorf("failed to parse Alert properties: %w", err)
+	}
+
+	putStr(attributeAzureAlertRuleUri, properties.RuleUri, record)
+	putStr(attributeAzureAlertRuleName, properties.RuleName, record)
+	putStr(attributeAzureAlertRuleDescription, properties.RuleDescription, record)
+	putStr(attributeAzureAlertThreshold, properties.Threshold, record)
+	putStr(attributeAzureAlertWindowSize, properties.WindowSizeInMinutes, record)
+	putStr(attributeAzureAlertAggregation, properties.Aggregation, record)
+	putStr(attributeAzureAlertOperator, properties.Operator, record)
+	putStr(attributeAzureAlertMetricName, properties.MetricName, record)
+	putStr(attributeAzureAlertMetricUnit, properties.MetricUnit, record)
+
+	return nil
+}
+
+// autoscaleLogProperties represents the properties field of an Autoscale activity log.
+// See: https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/activity-log-schema#autoscale-category
+type autoscaleLogProperties struct {
+	Description        string `json:"Description"`
+	ResourceName       string `json:"ResourceName"`
+	OldInstancesCount  string `json:"OldInstancesCount"`
+	NewInstancesCount  string `json:"NewInstancesCount"`
+	LastScaleActionTime string `json:"LastScaleActionTime"`
+}
+
+// addAutoscaleLogProperties parses Autoscale activity logs
+// and maps them to OpenTelemetry semantic conventions.
+// See: https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/activity-log-schema#autoscale-category
+func addAutoscaleLogProperties(data []byte, record plog.LogRecord) error {
+	var properties autoscaleLogProperties
+	if err := gojson.Unmarshal(data, &properties); err != nil {
+		return fmt.Errorf("failed to parse Autoscale properties: %w", err)
+	}
+
+	putStr(attributeAzureAutoscaleDescription, properties.Description, record)
+	putStr(attributeAzureAutoscaleResourceName, properties.ResourceName, record)
+	putStr(attributeAzureAutoscaleOldInstances, properties.OldInstancesCount, record)
+	putStr(attributeAzureAutoscaleNewInstances, properties.NewInstancesCount, record)
+	putStr(attributeAzureAutoscaleLastScaleAction, properties.LastScaleActionTime, record)
+
+	return nil
+}
+
+// securityLogProperties represents the properties field of a Security activity log.
+// See: https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/activity-log-schema#security-category
+type securityLogProperties struct {
+	AccountLogonId    string `json:"accountLogonId"`
+	CommandLine       string `json:"commandLine"`
+	DomainName        string `json:"domainName"`
+	ParentProcess     string `json:"parentProcess"`
+	ParentProcessId   string `json:"parentProcess id"`
+	ProcessId         string `json:"processId"`
+	ProcessName       string `json:"processName"`
+	UserName          string `json:"userName"`
+	UserSID           string `json:"UserSID"`
+	ActionTaken       string `json:"ActionTaken"`
+	Severity          string `json:"Severity"`
+}
+
+// addSecurityLogProperties parses Security activity logs
+// and maps them to OpenTelemetry semantic conventions.
+// See: https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/activity-log-schema#security-category
+func addSecurityLogProperties(data []byte, record plog.LogRecord) error {
+	var properties securityLogProperties
+	if err := gojson.Unmarshal(data, &properties); err != nil {
+		return fmt.Errorf("failed to parse Security properties: %w", err)
+	}
+
+	putStr(attributeAzureSecurityAccountLogonId, properties.AccountLogonId, record)
+	putStr(attributeAzureSecurityCommandLine, properties.CommandLine, record)
+	putStr(attributeAzureSecurityDomainName, properties.DomainName, record)
+	putStr(attributeAzureSecurityParentProcess, properties.ParentProcess, record)
+	putStr(attributeAzureSecurityParentProcessId, properties.ParentProcessId, record)
+	putStr(attributeAzureSecurityProcessId, properties.ProcessId, record)
+	putStr(attributeAzureSecurityProcessName, properties.ProcessName, record)
+	putStr(attributeAzureSecurityUserName, properties.UserName, record)
+	putStr(attributeAzureSecurityUserSID, properties.UserSID, record)
+	putStr(attributeAzureSecurityActionTaken, properties.ActionTaken, record)
+	putStr(attributeAzureSecuritySeverity, properties.Severity, record)
+
+	return nil
+}
+
+// administrativeLogProperties represents the properties field of an Administrative activity log.
+// See: https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/activity-log-schema#administrative-category
+type administrativeLogProperties struct {
+	Entity   string `json:"entity"`
+	Message  string `json:"message"`
+	Hierarchy string `json:"hierarchy"`
+}
+
+// addAdministrativeLogProperties parses Administrative activity logs
+// and maps them to OpenTelemetry semantic conventions.
+// See: https://learn.microsoft.com/en-us/azure/azure-monitor/essentials/activity-log-schema#administrative-category
+func addAdministrativeLogProperties(data []byte, record plog.LogRecord) error {
+	var properties administrativeLogProperties
+	if err := gojson.Unmarshal(data, &properties); err != nil {
+		return fmt.Errorf("failed to parse Administrative properties: %w", err)
+	}
+
+	putStr(attributeAzureAdministrativeEntity, properties.Entity, record)
+	putStr(attributeAzureAdministrativeMessage, properties.Message, record)
+	putStr(attributeAzureAdministrativeHierarchy, properties.Hierarchy, record)
 
 	return nil
 }

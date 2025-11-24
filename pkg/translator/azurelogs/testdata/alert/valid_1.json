@@ -1,0 +1,32 @@
+{
+    "records": [
+        {
+            "Level": 5,
+            "category": "Alert",
+            "location": "global",
+            "resourceId": "/SUBSCRIPTIONS/12CABCB4-86E8-404F-A3D2-1DC9982F45CA/RESOURCEGROUPS/MYRESOURCEGROUP/PROVIDERS/MICROSOFT.CLASSICCOMPUTE/DOMAINNAMES/MYRESOURCEGROUP/SLOTS/PRODUCTION/ROLES/EVENT.BACKGROUNDJOBSWORKER.RAZZLE",
+            "time": "2017-07-21T09:24:13.522192Z",
+            "level": "Informational",
+            "correlationId": "/subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/resourceGroups/myResourceGroup/providers/microsoft.insights/alertrules/myalert/incidents/L3N1YnNjcmlwdGlvbnMvZGY2MDJjOWMtN2FhMC00MDdkLWE2ZmItZWIyMGM4YmQxMTkyL3Jlc291cmNlR3JvdXBzL0NzbUV2ZW50RE9HRk9PRC1XZXN0VVMvcHJvdmlkZXJzL21pY3Jvc29mdC5pbnNpZ2h0cy9hbGVydHJ1bGVzL215YWxlcnQwNjM2MzYyMjU4NTM1MjIxOTIw",
+            "operationName": "MICROSOFT.INSIGHTS/ALERTRULES/RESOLVED/ACTION",
+            "resultType": "Resolved",
+            "properties": {
+                "RuleUri": "/subscriptions/12cabcb4-86e8-404f-a3d2-1dc9982f45ca/resourceGroups/myResourceGroup/providers/microsoft.insights/alertrules/myalert",
+                "RuleName": "myalert",
+                "RuleDescription": "",
+                "Threshold": "100000",
+                "WindowSizeInMinutes": "5",
+                "Aggregation": "Average",
+                "Operator": "LessThan",
+                "MetricName": "Disk read",
+                "MetricUnit": "Count"
+            },
+            "tenantId": "aa40685b-417d-4664-b4ec-8f7640719adb",
+            "identity": {
+                "claims": {
+                    "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/spn": "Microsoft.Insights/alertRules"
+                }
+            }
+        }
+    ]
+}
