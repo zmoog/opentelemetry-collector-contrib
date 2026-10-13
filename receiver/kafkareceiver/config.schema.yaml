@@ -38,7 +38,7 @@ $defs:
     type: object
     properties:
       kafka_receiver_partition_diagnostics:
-        description: Opt-in per-partition mailbox, pause, resume and record processing diagnostics.
+        description: KafkaReceiverPartitionDiagnostics enables per-partition wait measurements. Disabled by default to avoid per-record timing and metric overhead.
         $ref: metric_config
       kafka_receiver_records_delay:
         description: KafkaReceiverRecordsDelay controls whether the metric kafka_receiver_records_delay that measures the time in seconds between producing and receiving a batch of records will be reported or not. This metric is not reported by default because it may slow down high-volume consuming.
