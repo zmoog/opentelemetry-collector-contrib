@@ -672,7 +672,7 @@ func (c *franzConsumer) lost(ctx context.Context, _ *kgo.Client,
 			if !ok {
 				continue
 			}
-			pc.cancelContext(errors.New(
+			pc.retireAssignment(errors.New(
 				"stopping processing: partition reassigned or lost",
 			))
 			// Discard the queue at cancel time. Fatal loss can return while

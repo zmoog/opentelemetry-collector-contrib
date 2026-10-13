@@ -5,6 +5,7 @@ package kafkareceiver // import "github.com/open-telemetry/opentelemetry-collect
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"go.opentelemetry.io/collector/component/componenttest"
+	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.opentelemetry.io/collector/pdata/testdata"
 	"go.opentelemetry.io/otel/attribute"
@@ -69,8 +71,8 @@ func TestPartitionDiagnosticsCanceledAndDiscardedWaits(t *testing.T) {
 	require.True(t, p.clearPauseReasons(partitionPauseBackpressure))
 	p.addPauseReason(partitionPauseRewind) // A new pause interrupts the first resume interval.
 	require.True(t, p.clearPauseReasons(partitionPauseRewind))
-	p.cancelContext(context.Canceled)
-	p.cancelContext(context.Canceled)
+	p.retireAssignment(context.Canceled)
+	p.retireAssignment(context.Canceled)
 	p.diagnostics.dataReceived() // A lost assignment cannot complete a canceled wait.
 	h := diagnosticHistogram(t, tel, "otelcol_kafka_receiver_resume_to_data_duration")
 	require.Len(t, h.DataPoints, 2)
@@ -148,4 +150,70 @@ func TestReceiverPartitionDiagnosticsOptIn(t *testing.T) {
 			require.Equal(t, uint64(1), h.DataPoints[0].Count)
 		})
 	}
+}
+
+func TestTerminalPauseDiagnosticsSurviveWorkerStop(t *testing.T) {
+	consumer, client, p := newIndependentConsumer(t, "test", 1, MessageMarking{After: true}, false)
+	diagnosticPC, tel := diagnosticPartition(t)
+	p.attrs = diagnosticPC.attrs
+	p.diagnostics = diagnosticPC.diagnostics
+	p.mailbox = newPartitionMailbox(p.ctx, 1)
+	p.mailbox.diagnostics = p.diagnostics
+	consumer.consumeMessage = func(context.Context, *kgo.Record, attribute.Set) error {
+		return consumererror.NewPermanent(errors.New("rejected record"))
+	}
+	require.True(t, p.mailbox.enqueue(offsetBatch(1), func(reason partitionPauseReason) { p.addPauseReason(reason) }))
+	require.True(t, p.add())
+	done := make(chan struct{})
+	go func() { consumer.runPartitionWorker(p, topicPartition{topic: "test", partition: 0}); close(done) }()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("terminal worker did not stop")
+	}
+	require.ErrorIs(t, p.ctx.Err(), context.Canceled)
+	requireDiagnosticGauge(t, tel, "otelcol_kafka_receiver_partition_paused", 1)
+	require.Contains(t, p.diagnostics.pauses, partitionPauseTerminal, "terminal pause must remain open while assignment is retained")
+	consumer.lost(t.Context(), client, map[string][]int32{"test": {0}}, false)
+	requireDiagnosticGauge(t, tel, "otelcol_kafka_receiver_partition_paused", 0)
+	h := diagnosticHistogram(t, tel, "otelcol_kafka_receiver_partition_pause_duration")
+	var terminalCount uint64
+	for _, dp := range h.DataPoints {
+		reason, _ := dp.Attributes.Value("pause_reason")
+		if reason.AsString() == "terminal" {
+			terminalCount += dp.Count
+			require.Positive(t, dp.Sum)
+		}
+	}
+	require.Equal(t, uint64(1), terminalCount)
+}
+
+func TestRetiredMailboxCannotOverwriteReplacementDepth(t *testing.T) {
+	consumer, client, old := newIndependentConsumer(t, "test", 1, MessageMarking{After: true}, false)
+	diagnosticPC, tel := diagnosticPartition(t)
+	old.attrs = diagnosticPC.attrs
+	old.diagnostics = diagnosticPC.diagnostics
+	old.mailbox = newPartitionMailbox(old.ctx, 2)
+	old.mailbox.diagnostics = old.diagnostics
+	require.True(t, old.mailbox.enqueue(mailboxBatch(0), func(partitionPauseReason) {}))
+	consumer.lost(t.Context(), client, map[string][]int32{"test": {0}}, true)
+	requireDiagnosticGauge(t, tel, "otelcol_kafka_receiver_mailbox_depth", 0)
+	replacement := newPartitionMailbox(t.Context(), 2)
+	replacement.diagnostics = newPartitionDiagnostics(old.diagnostics.builder, old.attrs)
+	require.True(t, replacement.enqueue(mailboxBatch(1), func(partitionPauseReason) {}))
+	requireDiagnosticGauge(t, tel, "otelcol_kafka_receiver_mailbox_depth", 1)
+	// A timed-out worker can take this cleanup path after its replacement starts.
+	old.mailbox.discard()
+	old.diagnostics.depth(0)
+	requireDiagnosticGauge(t, tel, "otelcol_kafka_receiver_mailbox_depth", 1)
+}
+
+func requireDiagnosticGauge(t *testing.T, tel *componenttest.Telemetry, name string, want int64) {
+	t.Helper()
+	m, err := tel.GetMetric(name)
+	require.NoError(t, err)
+	gauge, ok := m.Data.(metricdata.Gauge[int64])
+	require.True(t, ok)
+	require.Len(t, gauge.DataPoints, 1)
+	require.Equal(t, want, gauge.DataPoints[0].Value)
 }

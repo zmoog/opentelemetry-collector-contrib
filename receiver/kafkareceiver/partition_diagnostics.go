@@ -18,13 +18,13 @@ import (
 // partitionDiagnostics is allocated only when explicitly enabled. Pause state
 // follows receiver reasons; it does not inspect requests already in franz-go.
 type partitionDiagnostics struct {
-	mu       sync.Mutex
-	builder  *metadata.TelemetryBuilder
-	attrs    attribute.Set
-	pauses   map[partitionPauseReason]time.Time
-	resumed  time.Time
-	active   int64
-	canceled bool
+	mu      sync.Mutex
+	builder *metadata.TelemetryBuilder
+	attrs   attribute.Set
+	pauses  map[partitionPauseReason]time.Time
+	resumed time.Time
+	active  int64
+	retired bool
 }
 
 func newPartitionDiagnostics(builder *metadata.TelemetryBuilder, attrs attribute.Set) *partitionDiagnostics {
@@ -37,6 +37,11 @@ func (d *partitionDiagnostics) options(extra ...attribute.KeyValue) metric.Measu
 }
 
 func (d *partitionDiagnostics) depth(n int) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.retired {
+		return
+	}
 	d.builder.KafkaReceiverMailboxDepth.Record(context.Background(), int64(n), d.options())
 }
 
@@ -58,7 +63,7 @@ func pauseReasonName(reason partitionPauseReason) string {
 // addPauseLocked and clearPauseLocked run under the same lock as changes to
 // pc.pauseReasons, preserving ordering between worker and poll-loop observers.
 func (d *partitionDiagnostics) addPauseLocked(reason partitionPauseReason) {
-	if d.canceled {
+	if d.retired {
 		return
 	}
 	if _, exists := d.pauses[reason]; exists {
@@ -72,7 +77,7 @@ func (d *partitionDiagnostics) addPauseLocked(reason partitionPauseReason) {
 }
 
 func (d *partitionDiagnostics) clearPauseLocked(reasons partitionPauseReason, remaining uint32) {
-	if d.canceled {
+	if d.retired {
 		return
 	}
 	changed := false
@@ -101,7 +106,7 @@ func (d *partitionDiagnostics) recordResumeLocked(outcome string) {
 func (d *partitionDiagnostics) dataReceived() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if !d.canceled && !d.resumed.IsZero() {
+	if !d.retired && !d.resumed.IsZero() {
 		d.recordResumeLocked("success")
 	}
 }
@@ -110,18 +115,18 @@ func (d *partitionDiagnostics) processing(delta int64) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.active += delta
-	if !d.canceled {
+	if !d.retired {
 		d.builder.KafkaReceiverProcessingRecords.Record(context.Background(), d.active, d.options())
 	}
 }
 
-func (d *partitionDiagnostics) cancel() {
+func (d *partitionDiagnostics) retire() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if d.canceled {
+	if d.retired {
 		return
 	}
-	d.canceled = true
+	d.retired = true
 	for reason, start := range d.pauses {
 		d.recordPause(reason, start, "canceled")
 	}
@@ -130,7 +135,8 @@ func (d *partitionDiagnostics) cancel() {
 		d.recordResumeLocked("canceled")
 	}
 	d.builder.KafkaReceiverPartitionPaused.Record(context.Background(), 0, d.options())
-	// Cancel removes this assignment; a timed-out old worker must not overwrite
+	d.builder.KafkaReceiverMailboxDepth.Record(context.Background(), 0, d.options())
+	// Retirement removes this assignment; a timed-out old worker must not overwrite
 	// the new owner's gauge for the same topic-partition when it eventually exits.
 	d.builder.KafkaReceiverProcessingRecords.Record(context.Background(), 0, d.options())
 }

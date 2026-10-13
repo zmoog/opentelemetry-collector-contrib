@@ -367,6 +367,10 @@ enqueue-to-dequeue time and labels discarded batches separately.
 `kafka_receiver_partition_paused` reflects active receiver pause reasons.
 `kafka_receiver_partition_pause_duration` measures each reason separately;
 overlapping reason durations must not be summed as total paused wall time.
+A terminal processing error stops the worker but leaves fetching paused. Its
+pause gauge and duration remain active until the assignment is retired on loss,
+reassignment, or shutdown. Assignment retirement resets state gauges once;
+subsequent cleanup by an old worker cannot overwrite a replacement's state.
 
 `kafka_receiver_resume_to_data_duration` measures from clearing the final pause
 reason (immediately before resuming fetching) to dispatching the next nonempty

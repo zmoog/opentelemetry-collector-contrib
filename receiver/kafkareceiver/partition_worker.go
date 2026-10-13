@@ -83,8 +83,14 @@ func (p *pc) cancelContext(err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.cancel(err)
+}
+
+// retireAssignment ends diagnostics when ownership is lost. Stopping a worker
+// alone must preserve a terminal fetch pause until the assignment is removed.
+func (p *pc) retireAssignment(err error) {
+	p.cancelContext(err)
 	if p.diagnostics != nil {
-		p.diagnostics.cancel()
+		p.diagnostics.retire()
 	}
 }
 
@@ -284,9 +290,8 @@ func (c *franzConsumer) processPartitionBatch(pc *pc, p kgo.FetchTopicPartition)
 				)
 			}
 		default:
-			// No pause reason is needed because this worker exits permanently.
-			// On reassignment, a new partition consumer resumes fetching with
-			// no pause reasons.
+			// Retain a terminal reason for diagnostics after this worker exits.
+			// A new owner resumes fetching when the assignment is replaced.
 			c.mu.RLock()
 			current := c.assignments[topicPartition{topic: p.Topic, partition: p.Partition}]
 			// A worker can pause only while it owns the assignment and remains active.
