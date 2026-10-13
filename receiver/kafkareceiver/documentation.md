@@ -143,6 +143,41 @@ Only produced when franz-go is enabled. Deprecated in favor of kafka_receiver_re
 | partition | The Kafka topic partition. | Any Int | - |
 | outcome | The operation outcome. | Str: ``success``, ``failure`` | - |
 
+### otelcol_kafka_receiver_mailbox_depth
+
+Fetched batches waiting in the partition mailbox, excluding the batch being processed
+
+Only emitted when telemetry.metrics.kafka_receiver_partition_diagnostics.enabled is true.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {batch} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| topic | The Kafka topic. | Any Str | - |
+| partition | The Kafka topic partition. | Any Int | - |
+
+### otelcol_kafka_receiver_mailbox_queue_duration
+
+Time a fetched batch spends waiting in the partition mailbox
+
+Only emitted when telemetry.metrics.kafka_receiver_partition_diagnostics.enabled is true.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| s | Histogram | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| topic | The Kafka topic. | Any Str | - |
+| partition | The Kafka topic partition. | Any Int | - |
+| wait_outcome | Whether the measured operation completed or was interrupted. | Str: ``success``, ``canceled``, ``failure``, ``discarded`` | - |
+
 ### otelcol_kafka_receiver_messages
 
 The number of received messages.
@@ -187,6 +222,42 @@ Number of finished partitions
 | ---- | ----------- | ---------- | --------- | --------- |
 | 1 | Sum | Int | true | Development |
 
+### otelcol_kafka_receiver_partition_pause_duration
+
+Time a partition pause reason remains active
+
+Only emitted when telemetry.metrics.kafka_receiver_partition_diagnostics.enabled is true.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| s | Histogram | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| topic | The Kafka topic. | Any Str | - |
+| partition | The Kafka topic partition. | Any Int | - |
+| pause_reason | The receiver reason preventing fetching. | Str: ``backpressure``, ``rewind``, ``terminal`` | - |
+| wait_outcome | Whether the measured operation completed or was interrupted. | Str: ``success``, ``canceled``, ``failure``, ``discarded`` | - |
+
+### otelcol_kafka_receiver_partition_paused
+
+Whether a partition has active receiver pause reasons
+
+Only emitted when telemetry.metrics.kafka_receiver_partition_diagnostics.enabled is true.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| topic | The Kafka topic. | Any Str | - |
+| partition | The Kafka topic partition. | Any Int | - |
+
 ### otelcol_kafka_receiver_partition_start
 
 Number of started partitions
@@ -194,6 +265,23 @@ Number of started partitions
 | Unit | Metric Type | Value Type | Monotonic | Stability |
 | ---- | ----------- | ---------- | --------- | --------- |
 | 1 | Sum | Int | true | Development |
+
+### otelcol_kafka_receiver_processing_records
+
+Records currently being processed, including retry backoff
+
+Only emitted when telemetry.metrics.kafka_receiver_partition_diagnostics.enabled is true.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {record} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| topic | The Kafka topic. | Any Str | - |
+| partition | The Kafka topic partition. | Any Int | - |
 
 ### otelcol_kafka_receiver_read_latency
 
@@ -213,6 +301,25 @@ Only produced when franz-go is enabled.
 | topic | The Kafka topic. | Any Str | - |
 | partition | The Kafka topic partition. | Any Int | - |
 | outcome | The operation outcome. | Str: ``success``, ``failure`` | - |
+
+### otelcol_kafka_receiver_record_processing_duration
+
+Time spent decoding or invoking the downstream consumer for one record attempt, excluding retry backoff
+
+Only emitted when telemetry.metrics.kafka_receiver_partition_diagnostics.enabled is true.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| s | Histogram | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| topic | The Kafka topic. | Any Str | - |
+| partition | The Kafka topic partition. | Any Int | - |
+| phase | The record processing phase. | Str: ``decode``, ``consume`` | - |
+| wait_outcome | Whether the measured operation completed or was interrupted. | Str: ``success``, ``canceled``, ``failure``, ``discarded`` | - |
 
 ### otelcol_kafka_receiver_records
 
@@ -250,6 +357,24 @@ This metric is reported with an assumption that the exporter and the receiver cl
 | ---- | ----------- | ------ | ------------------- |
 | topic | The Kafka topic. | Any Str | - |
 | partition | The Kafka topic partition. | Any Int | - |
+
+### otelcol_kafka_receiver_resume_to_data_duration
+
+Time from clearing all pause reasons until the next nonempty partition fetch is dispatched; not proof of an idle fetch
+
+Only emitted when telemetry.metrics.kafka_receiver_partition_diagnostics.enabled is true.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| s | Histogram | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| topic | The Kafka topic. | Any Str | - |
+| partition | The Kafka topic partition. | Any Int | - |
+| wait_outcome | Whether the measured operation completed or was interrupted. | Str: ``success``, ``canceled``, ``failure``, ``discarded`` | - |
 
 ### otelcol_kafka_receiver_unmarshal_failed_log_records
 

@@ -1,0 +1,5 @@
+change_type: enhancement
+component: receiver/kafka
+note: Add opt-in partition wait and record-processing diagnostics.
+issues: []
+change_logs: [user]

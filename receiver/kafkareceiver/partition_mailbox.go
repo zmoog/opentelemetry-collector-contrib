@@ -7,6 +7,7 @@ import (
 	"context"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -18,7 +19,8 @@ type partitionMailbox struct {
 
 	mu sync.Mutex
 	// batches is the bounded FIFO queue of batches waiting for the worker.
-	batches []kgo.FetchTopicPartition
+	batches     []queuedPartitionBatch
+	diagnostics *partitionDiagnostics
 	// notify wakes the worker when work or a rewind is available. Its single
 	// buffered signal represents the state change, not each individual batch.
 	notify chan struct{}
@@ -26,11 +28,16 @@ type partitionMailbox struct {
 	pendingRewind *kgo.EpochOffset
 }
 
+type queuedPartitionBatch struct {
+	batch    kgo.FetchTopicPartition
+	enqueued time.Time
+}
+
 // newPartitionMailbox creates a mailbox with capacity waiting batch slots.
 func newPartitionMailbox(ctx context.Context, capacity int) *partitionMailbox {
 	return &partitionMailbox{
 		ctx:     ctx,
-		batches: make([]kgo.FetchTopicPartition, 0, capacity),
+		batches: make([]queuedPartitionBatch, 0, capacity),
 		notify:  make(chan struct{}, 1),
 	}
 }
@@ -53,7 +60,14 @@ func (m *partitionMailbox) enqueue(batch kgo.FetchTopicPartition, pause func(par
 		return false
 	}
 
-	m.batches = append(m.batches, batch)
+	queued := queuedPartitionBatch{batch: batch}
+	if m.diagnostics != nil {
+		queued.enqueued = time.Now()
+	}
+	m.batches = append(m.batches, queued)
+	if m.diagnostics != nil {
+		m.diagnostics.depth(len(m.batches))
+	}
 	m.notifyLocked()
 	// Pause when the final slot is filled so franz-go discards any additional
 	// records it buffered for this partition before another poll returns them.
@@ -72,15 +86,19 @@ func (m *partitionMailbox) dequeue(resume func()) (kgo.FetchTopicPartition, bool
 		return kgo.FetchTopicPartition{}, false
 	}
 
-	batch := m.batches[0]
+	queued := m.batches[0]
 	m.batches = slices.Delete(m.batches, 0, 1)
+	if m.diagnostics != nil {
+		m.diagnostics.queueDuration(queued.enqueued, "success")
+		m.diagnostics.depth(len(m.batches))
+	}
 	// A pending rewind must move the fetch position before fetching resumes.
 	// Calling resume under the lock also prevents it from overtaking an older
 	// pause operation.
 	if m.pendingRewind == nil {
 		resume()
 	}
-	return batch, true
+	return queued.batch, true
 }
 
 // requestRewind records the earliest offset that must be fetched again,
@@ -96,8 +114,7 @@ func (m *partitionMailbox) requestRewind(record *kgo.Record, clearQueue bool, pa
 // requestRewindLocked updates rewind state while the caller holds m.mu.
 func (m *partitionMailbox) requestRewindLocked(record *kgo.Record, clearQueue bool) {
 	if clearQueue {
-		clear(m.batches)
-		m.batches = m.batches[:0]
+		m.discardQueued("discarded")
 	}
 	// Multiple rejected fetches may arrive before the poll loop applies the
 	// rewind. Keep the earliest offset so no rejected record is skipped.
@@ -142,8 +159,7 @@ func (m *partitionMailbox) discard() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	clear(m.batches)
-	m.batches = m.batches[:0]
+	m.discardQueued("canceled")
 	m.pendingRewind = nil
 }
 
@@ -153,4 +169,16 @@ func (m *partitionMailbox) notifyLocked() {
 	case m.notify <- struct{}{}:
 	default:
 	}
+}
+
+// discardQueued is called with the mailbox lock held.
+func (m *partitionMailbox) discardQueued(outcome string) {
+	if m.diagnostics != nil {
+		for _, q := range m.batches {
+			m.diagnostics.queueDuration(q.enqueued, outcome)
+		}
+		m.diagnostics.depth(0)
+	}
+	clear(m.batches)
+	m.batches = m.batches[:0]
 }

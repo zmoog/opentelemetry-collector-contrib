@@ -7,10 +7,11 @@ import (
 	"errors"
 	"sync"
 
-	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/embedded"
 	"go.opentelemetry.io/otel/trace"
+
+	"go.opentelemetry.io/collector/component"
 )
 
 func Meter(settings component.TelemetrySettings) metric.Meter {
@@ -35,13 +36,20 @@ type TelemetryBuilder struct {
 	KafkaReceiverBytesUncompressed           metric.Int64Counter
 	KafkaReceiverCurrentOffset               metric.Int64ObservableGauge
 	KafkaReceiverLatency                     metric.Int64Histogram
+	KafkaReceiverMailboxDepth                metric.Int64Gauge
+	KafkaReceiverMailboxQueueDuration        metric.Float64Histogram
 	KafkaReceiverMessages                    metric.Int64Counter
 	KafkaReceiverOffsetLag                   metric.Int64ObservableGauge
 	KafkaReceiverPartitionClose              metric.Int64Counter
+	KafkaReceiverPartitionPauseDuration      metric.Float64Histogram
+	KafkaReceiverPartitionPaused             metric.Int64Gauge
 	KafkaReceiverPartitionStart              metric.Int64Counter
+	KafkaReceiverProcessingRecords           metric.Int64Gauge
 	KafkaReceiverReadLatency                 metric.Float64Histogram
+	KafkaReceiverRecordProcessingDuration    metric.Float64Histogram
 	KafkaReceiverRecords                     metric.Int64Counter
 	KafkaReceiverRecordsDelay                metric.Float64Histogram
+	KafkaReceiverResumeToDataDuration        metric.Float64Histogram
 	KafkaReceiverUnmarshalFailedLogRecords   metric.Int64Counter
 	KafkaReceiverUnmarshalFailedMetricPoints metric.Int64Counter
 	KafkaReceiverUnmarshalFailedProfiles     metric.Int64Counter
@@ -166,6 +174,19 @@ func NewTelemetryBuilder(settings component.TelemetrySettings, options ...Teleme
 		metric.WithUnit("ms"),
 	)
 	errs = errors.Join(errs, err)
+	builder.KafkaReceiverMailboxDepth, err = builder.meter.Int64Gauge(
+		"otelcol_kafka_receiver_mailbox_depth",
+		metric.WithDescription("Fetched batches waiting in the partition mailbox, excluding the batch being processed [Development]"),
+		metric.WithUnit("{batch}"),
+	)
+	errs = errors.Join(errs, err)
+	builder.KafkaReceiverMailboxQueueDuration, err = builder.meter.Float64Histogram(
+		"otelcol_kafka_receiver_mailbox_queue_duration",
+		metric.WithDescription("Time a fetched batch spends waiting in the partition mailbox [Development]"),
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries([]float64{0, 0.0001, 0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10, 30}...),
+	)
+	errs = errors.Join(errs, err)
 	builder.KafkaReceiverMessages, err = builder.meter.Int64Counter(
 		"otelcol_kafka_receiver_messages",
 		metric.WithDescription("The number of received messages. [Deprecated]"),
@@ -184,10 +205,29 @@ func NewTelemetryBuilder(settings component.TelemetrySettings, options ...Teleme
 		metric.WithUnit("1"),
 	)
 	errs = errors.Join(errs, err)
+	builder.KafkaReceiverPartitionPauseDuration, err = builder.meter.Float64Histogram(
+		"otelcol_kafka_receiver_partition_pause_duration",
+		metric.WithDescription("Time a partition pause reason remains active [Development]"),
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries([]float64{0, 0.0001, 0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10, 30}...),
+	)
+	errs = errors.Join(errs, err)
+	builder.KafkaReceiverPartitionPaused, err = builder.meter.Int64Gauge(
+		"otelcol_kafka_receiver_partition_paused",
+		metric.WithDescription("Whether a partition has active receiver pause reasons [Development]"),
+		metric.WithUnit("1"),
+	)
+	errs = errors.Join(errs, err)
 	builder.KafkaReceiverPartitionStart, err = builder.meter.Int64Counter(
 		"otelcol_kafka_receiver_partition_start",
 		metric.WithDescription("Number of started partitions [Development]"),
 		metric.WithUnit("1"),
+	)
+	errs = errors.Join(errs, err)
+	builder.KafkaReceiverProcessingRecords, err = builder.meter.Int64Gauge(
+		"otelcol_kafka_receiver_processing_records",
+		metric.WithDescription("Records currently being processed, including retry backoff [Development]"),
+		metric.WithUnit("{record}"),
 	)
 	errs = errors.Join(errs, err)
 	builder.KafkaReceiverReadLatency, err = builder.meter.Float64Histogram(
@@ -195,6 +235,13 @@ func NewTelemetryBuilder(settings component.TelemetrySettings, options ...Teleme
 		metric.WithDescription("The time it took in seconds to receive a batch of records. [Development]"),
 		metric.WithUnit("s"),
 		metric.WithExplicitBucketBoundaries([]float64{0, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10, 25, 50, 75, 100}...),
+	)
+	errs = errors.Join(errs, err)
+	builder.KafkaReceiverRecordProcessingDuration, err = builder.meter.Float64Histogram(
+		"otelcol_kafka_receiver_record_processing_duration",
+		metric.WithDescription("Time spent decoding or invoking the downstream consumer for one record attempt, excluding retry backoff [Development]"),
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries([]float64{0, 0.0001, 0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10, 30}...),
 	)
 	errs = errors.Join(errs, err)
 	builder.KafkaReceiverRecords, err = builder.meter.Int64Counter(
@@ -208,6 +255,13 @@ func NewTelemetryBuilder(settings component.TelemetrySettings, options ...Teleme
 		metric.WithDescription("The time in seconds between producing and receiving a batch of records. [Development]"),
 		metric.WithUnit("s"),
 		metric.WithExplicitBucketBoundaries([]float64{0, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1, 2.5, 5, 7.5, 10, 25, 50, 75, 100, 250, 500, 750, 1000, 2500, 5000, 7500, 10000}...),
+	)
+	errs = errors.Join(errs, err)
+	builder.KafkaReceiverResumeToDataDuration, err = builder.meter.Float64Histogram(
+		"otelcol_kafka_receiver_resume_to_data_duration",
+		metric.WithDescription("Time from clearing all pause reasons until the next nonempty partition fetch is dispatched; not proof of an idle fetch [Development]"),
+		metric.WithUnit("s"),
+		metric.WithExplicitBucketBoundaries([]float64{0, 0.0001, 0.001, 0.01, 0.1, 0.5, 1, 2, 5, 10, 30}...),
 	)
 	errs = errors.Join(errs, err)
 	builder.KafkaReceiverUnmarshalFailedLogRecords, err = builder.meter.Int64Counter(

@@ -144,6 +144,35 @@ func AssertEqualKafkaReceiverLatency(t *testing.T, tt *componenttest.Telemetry, 
 	metricdatatest.AssertEqual(t, want, got, opts...)
 }
 
+func AssertEqualKafkaReceiverMailboxDepth(t *testing.T, tt *componenttest.Telemetry, dps []metricdata.DataPoint[int64], opts ...metricdatatest.Option) {
+	want := metricdata.Metrics{
+		Name:        "otelcol_kafka_receiver_mailbox_depth",
+		Description: "Fetched batches waiting in the partition mailbox, excluding the batch being processed [Development]",
+		Unit:        "{batch}",
+		Data: metricdata.Gauge[int64]{
+			DataPoints: dps,
+		},
+	}
+	got, err := tt.GetMetric("otelcol_kafka_receiver_mailbox_depth")
+	require.NoError(t, err)
+	metricdatatest.AssertEqual(t, want, got, opts...)
+}
+
+func AssertEqualKafkaReceiverMailboxQueueDuration(t *testing.T, tt *componenttest.Telemetry, dps []metricdata.HistogramDataPoint[float64], opts ...metricdatatest.Option) {
+	want := metricdata.Metrics{
+		Name:        "otelcol_kafka_receiver_mailbox_queue_duration",
+		Description: "Time a fetched batch spends waiting in the partition mailbox [Development]",
+		Unit:        "s",
+		Data: metricdata.Histogram[float64]{
+			Temporality: metricdata.CumulativeTemporality,
+			DataPoints:  dps,
+		},
+	}
+	got, err := tt.GetMetric("otelcol_kafka_receiver_mailbox_queue_duration")
+	require.NoError(t, err)
+	metricdatatest.AssertEqual(t, want, got, opts...)
+}
+
 func AssertEqualKafkaReceiverMessages(t *testing.T, tt *componenttest.Telemetry, dps []metricdata.DataPoint[int64], opts ...metricdatatest.Option) {
 	want := metricdata.Metrics{
 		Name:        "otelcol_kafka_receiver_messages",
@@ -190,6 +219,35 @@ func AssertEqualKafkaReceiverPartitionClose(t *testing.T, tt *componenttest.Tele
 	metricdatatest.AssertEqual(t, want, got, opts...)
 }
 
+func AssertEqualKafkaReceiverPartitionPauseDuration(t *testing.T, tt *componenttest.Telemetry, dps []metricdata.HistogramDataPoint[float64], opts ...metricdatatest.Option) {
+	want := metricdata.Metrics{
+		Name:        "otelcol_kafka_receiver_partition_pause_duration",
+		Description: "Time a partition pause reason remains active [Development]",
+		Unit:        "s",
+		Data: metricdata.Histogram[float64]{
+			Temporality: metricdata.CumulativeTemporality,
+			DataPoints:  dps,
+		},
+	}
+	got, err := tt.GetMetric("otelcol_kafka_receiver_partition_pause_duration")
+	require.NoError(t, err)
+	metricdatatest.AssertEqual(t, want, got, opts...)
+}
+
+func AssertEqualKafkaReceiverPartitionPaused(t *testing.T, tt *componenttest.Telemetry, dps []metricdata.DataPoint[int64], opts ...metricdatatest.Option) {
+	want := metricdata.Metrics{
+		Name:        "otelcol_kafka_receiver_partition_paused",
+		Description: "Whether a partition has active receiver pause reasons [Development]",
+		Unit:        "1",
+		Data: metricdata.Gauge[int64]{
+			DataPoints: dps,
+		},
+	}
+	got, err := tt.GetMetric("otelcol_kafka_receiver_partition_paused")
+	require.NoError(t, err)
+	metricdatatest.AssertEqual(t, want, got, opts...)
+}
+
 func AssertEqualKafkaReceiverPartitionStart(t *testing.T, tt *componenttest.Telemetry, dps []metricdata.DataPoint[int64], opts ...metricdatatest.Option) {
 	want := metricdata.Metrics{
 		Name:        "otelcol_kafka_receiver_partition_start",
@@ -206,6 +264,20 @@ func AssertEqualKafkaReceiverPartitionStart(t *testing.T, tt *componenttest.Tele
 	metricdatatest.AssertEqual(t, want, got, opts...)
 }
 
+func AssertEqualKafkaReceiverProcessingRecords(t *testing.T, tt *componenttest.Telemetry, dps []metricdata.DataPoint[int64], opts ...metricdatatest.Option) {
+	want := metricdata.Metrics{
+		Name:        "otelcol_kafka_receiver_processing_records",
+		Description: "Records currently being processed, including retry backoff [Development]",
+		Unit:        "{record}",
+		Data: metricdata.Gauge[int64]{
+			DataPoints: dps,
+		},
+	}
+	got, err := tt.GetMetric("otelcol_kafka_receiver_processing_records")
+	require.NoError(t, err)
+	metricdatatest.AssertEqual(t, want, got, opts...)
+}
+
 func AssertEqualKafkaReceiverReadLatency(t *testing.T, tt *componenttest.Telemetry, dps []metricdata.HistogramDataPoint[float64], opts ...metricdatatest.Option) {
 	want := metricdata.Metrics{
 		Name:        "otelcol_kafka_receiver_read_latency",
@@ -217,6 +289,21 @@ func AssertEqualKafkaReceiverReadLatency(t *testing.T, tt *componenttest.Telemet
 		},
 	}
 	got, err := tt.GetMetric("otelcol_kafka_receiver_read_latency")
+	require.NoError(t, err)
+	metricdatatest.AssertEqual(t, want, got, opts...)
+}
+
+func AssertEqualKafkaReceiverRecordProcessingDuration(t *testing.T, tt *componenttest.Telemetry, dps []metricdata.HistogramDataPoint[float64], opts ...metricdatatest.Option) {
+	want := metricdata.Metrics{
+		Name:        "otelcol_kafka_receiver_record_processing_duration",
+		Description: "Time spent decoding or invoking the downstream consumer for one record attempt, excluding retry backoff [Development]",
+		Unit:        "s",
+		Data: metricdata.Histogram[float64]{
+			Temporality: metricdata.CumulativeTemporality,
+			DataPoints:  dps,
+		},
+	}
+	got, err := tt.GetMetric("otelcol_kafka_receiver_record_processing_duration")
 	require.NoError(t, err)
 	metricdatatest.AssertEqual(t, want, got, opts...)
 }
@@ -248,6 +335,21 @@ func AssertEqualKafkaReceiverRecordsDelay(t *testing.T, tt *componenttest.Teleme
 		},
 	}
 	got, err := tt.GetMetric("otelcol_kafka_receiver_records_delay")
+	require.NoError(t, err)
+	metricdatatest.AssertEqual(t, want, got, opts...)
+}
+
+func AssertEqualKafkaReceiverResumeToDataDuration(t *testing.T, tt *componenttest.Telemetry, dps []metricdata.HistogramDataPoint[float64], opts ...metricdatatest.Option) {
+	want := metricdata.Metrics{
+		Name:        "otelcol_kafka_receiver_resume_to_data_duration",
+		Description: "Time from clearing all pause reasons until the next nonempty partition fetch is dispatched; not proof of an idle fetch [Development]",
+		Unit:        "s",
+		Data: metricdata.Histogram[float64]{
+			Temporality: metricdata.CumulativeTemporality,
+			DataPoints:  dps,
+		},
+	}
+	got, err := tt.GetMetric("otelcol_kafka_receiver_resume_to_data_duration")
 	require.NoError(t, err)
 	metricdatatest.AssertEqual(t, want, got, opts...)
 }

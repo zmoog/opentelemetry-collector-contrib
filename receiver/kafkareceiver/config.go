@@ -233,6 +233,10 @@ type TelemetryConfig struct {
 
 // MetricsConfig provides config for optional receiver metrics.
 type MetricsConfig struct {
+	// KafkaReceiverPartitionDiagnostics enables per-partition wait measurements.
+	// Disabled by default to avoid per-record timing and metric overhead.
+	KafkaReceiverPartitionDiagnostics MetricConfig `mapstructure:"kafka_receiver_partition_diagnostics"`
+
 	// KafkaReceiverRecordsDelay controls whether the metric kafka_receiver_records_delay
 	// that measures the time in seconds between producing and receiving a batch of records
 	// will be reported or not. This metric is not reported by default because

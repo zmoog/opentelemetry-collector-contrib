@@ -20,6 +20,7 @@ type partitionPauseReason uint32
 const (
 	partitionPauseBackpressure partitionPauseReason = 1 << iota
 	partitionPauseRewind
+	partitionPauseTerminal
 )
 
 // partitionBatchResult describes the rewind work produced while processing one
@@ -31,8 +32,9 @@ type partitionBatchResult struct {
 
 // pc represents the partition consumer shared information.
 type pc struct {
-	logger *zap.Logger
-	attrs  attribute.Set
+	diagnostics *partitionDiagnostics
+	logger      *zap.Logger
+	attrs       attribute.Set
 
 	ctx    context.Context
 	cancel context.CancelCauseFunc
@@ -81,19 +83,36 @@ func (p *pc) cancelContext(err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.cancel(err)
+	if p.diagnostics != nil {
+		p.diagnostics.cancel()
+	}
 }
 
 // addPauseReason records why fetching must remain paused.
 func (p *pc) addPauseReason(reason partitionPauseReason) {
+	if p.diagnostics != nil {
+		p.diagnostics.mu.Lock()
+		defer p.diagnostics.mu.Unlock()
+	}
 	p.pauseReasons.Or(uint32(reason))
+	if p.diagnostics != nil {
+		p.diagnostics.addPauseLocked(reason)
+	}
 }
 
 // clearPauseReasons reports whether the cleared reasons were the final active
 // reasons, in which case the caller must resume fetching.
 func (p *pc) clearPauseReasons(reasons partitionPauseReason) bool {
+	if p.diagnostics != nil {
+		p.diagnostics.mu.Lock()
+		defer p.diagnostics.mu.Unlock()
+	}
 	mask := uint32(reasons)
 	previous := p.pauseReasons.And(^mask)
 	remaining := previous &^ mask
+	if p.diagnostics != nil {
+		p.diagnostics.clearPauseLocked(reasons, remaining)
+	}
 	return previous&mask != 0 && remaining == 0
 }
 
@@ -275,6 +294,7 @@ func (c *franzConsumer) processPartitionBatch(pc *pc, p kgo.FetchTopicPartition)
 			if canPause {
 				// Pause to prevent later records from passing the failed,
 				// unmarked record.
+				pc.addPauseReason(partitionPauseTerminal)
 				c.client.PauseFetchPartitions(map[string][]int32{p.Topic: {p.Partition}})
 
 				// Stop reporting lag and current offset because this partition

@@ -37,6 +37,9 @@ $defs:
     description: MetricsConfig provides config for optional receiver metrics.
     type: object
     properties:
+      kafka_receiver_partition_diagnostics:
+        description: Opt-in per-partition mailbox, pause, resume and record processing diagnostics.
+        $ref: metric_config
       kafka_receiver_records_delay:
         description: KafkaReceiverRecordsDelay controls whether the metric kafka_receiver_records_delay that measures the time in seconds between producing and receiving a batch of records will be reported or not. This metric is not reported by default because it may slow down high-volume consuming.
         $ref: metric_config

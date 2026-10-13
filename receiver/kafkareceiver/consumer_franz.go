@@ -520,6 +520,9 @@ func (c *franzConsumer) dispatchPartitionBatches(
 			return
 		}
 		partition := map[string][]int32{p.Topic: {p.Partition}}
+		if assign.diagnostics != nil {
+			assign.diagnostics.dataReceived()
+		}
 		enqueued := assign.mailbox.enqueue(p, func(reason partitionPauseReason) {
 			assign.addPauseReason(reason)
 			c.client.PauseFetchPartitions(partition)
@@ -620,6 +623,9 @@ func (c *franzConsumer) assigned(ctx context.Context, cl *kgo.Client, assigned m
 				),
 			}
 			partitionConsumer.ctx, partitionConsumer.cancel = context.WithCancelCause(ctx)
+			if c.config.Telemetry.Metrics.KafkaReceiverPartitionDiagnostics.Enabled {
+				partitionConsumer.diagnostics = newPartitionDiagnostics(c.telemetryBuilder, partitionConsumer.attrs)
+			}
 			tp := topicPartition{topic: topic, partition: partition}
 			c.assignments[tp] = &partitionConsumer
 			haveAssignmentsChanged = true
@@ -628,6 +634,7 @@ func (c *franzConsumer) assigned(ctx context.Context, cl *kgo.Client, assigned m
 					partitionConsumer.ctx,
 					c.config.PartitionProcessing.MaxBufferedBatches,
 				)
+				partitionConsumer.mailbox.diagnostics = partitionConsumer.diagnostics
 				if partitionConsumer.add() {
 					go c.runPartitionWorker(&partitionConsumer, tp)
 				}
@@ -776,6 +783,10 @@ func (c *franzConsumer) shouldMarkOnError(pc *pc, err error) bool {
 
 // handleMessage is called on a per-partition basis.
 func (c *franzConsumer) handleMessage(pc *pc, record *kgo.Record) error {
+	if pc.diagnostics != nil {
+		pc.diagnostics.processing(1)
+		defer pc.diagnostics.processing(-1)
+	}
 	backOff := newExponentialBackOff(c.config.ErrorBackOff)
 
 	for {

@@ -341,3 +341,42 @@ receivers:
       max_in_flight:
         records: 4
 ```
+
+### Partition processing diagnostics
+
+Per-partition timing and state metrics are opt-in because they add per-record
+measurement overhead and topic/partition series. Enable them with:
+
+```yaml
+receivers:
+  kafka:
+    telemetry:
+      metrics:
+        kafka_receiver_partition_diagnostics:
+          enabled: true
+```
+
+`kafka_receiver_record_processing_duration` separates each attempt's decoding
+(including encoding-specific decompression) from the downstream `Consume` call.
+It excludes retry backoff; `kafka_receiver_processing_records` includes records
+waiting in retry backoff. Phase timers report failures and cancellation.
+
+With independent partition processing, `kafka_receiver_mailbox_depth` excludes
+the currently processed batch. `kafka_receiver_mailbox_queue_duration` measures
+enqueue-to-dequeue time and labels discarded batches separately.
+`kafka_receiver_partition_paused` reflects active receiver pause reasons.
+`kafka_receiver_partition_pause_duration` measures each reason separately;
+overlapping reason durations must not be summed as total paused wall time.
+
+`kafka_receiver_resume_to_data_duration` measures from clearing the final pause
+reason (immediately before resuming fetching) to dispatching the next nonempty
+fetched batch. Reassignment/cancellation terminates outstanding waits with
+`wait_outcome: canceled`; a new pause interrupts the interval with `discarded`.
+This duration can include normal idle time and data buffered in the client.
+Correlate it with committed group lag and mailbox/processing state before
+interpreting it as a stall. It does not identify an in-flight Fetch that excludes
+a resumed partition: that requires request/session visibility in franz-go.
+
+Histogram counts represent completed or interrupted observations; a wait still
+in progress has no histogram observation yet. Use the state gauges alongside
+the histograms. These metrics never label offsets, record contents, or headers.

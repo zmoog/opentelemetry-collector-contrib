@@ -7,6 +7,7 @@ import (
 	"context"
 	"iter"
 	"strconv"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/twmb/franz-go/pkg/kgo"
@@ -379,7 +380,15 @@ func processMessage[T plog.Logs | pmetric.Metrics | ptrace.Traces | pprofile.Pro
 	}
 
 	obsCtx := handler.startObsReport(ctx)
+	var started time.Time
+	diagnostics := config.Telemetry.Metrics.KafkaReceiverPartitionDiagnostics.Enabled
+	if diagnostics {
+		started = time.Now()
+	}
 	data, n, err := handler.unmarshalData(record.Value)
+	if diagnostics {
+		recordProcessingDuration(ctx, telBldr, attrs, "decode", started, err)
+	}
 	if err != nil {
 		handler.getUnmarshalFailureCounter(telBldr).Add(ctx, 1, metric.WithAttributeSet(attrs))
 		logger.Error("failed to unmarshal message", zap.Error(err))
@@ -399,7 +408,13 @@ func processMessage[T plog.Logs | pmetric.Metrics | ptrace.Traces | pprofile.Pro
 		}
 	}
 
+	if diagnostics {
+		started = time.Now()
+	}
 	err = handler.consumeData(obsCtx, data)
+	if diagnostics {
+		recordProcessingDuration(ctx, telBldr, attrs, "consume", started, err)
+	}
 	handler.endObsReport(obsCtx, n, err)
 	return err
 }

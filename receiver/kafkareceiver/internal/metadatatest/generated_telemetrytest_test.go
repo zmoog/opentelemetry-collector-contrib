@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata/metricdatatest"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kafkareceiver/internal/metadata"
+	"go.opentelemetry.io/collector/component/componenttest"
 )
 
 func TestSetupTelemetry(t *testing.T) {
@@ -35,12 +35,19 @@ func TestSetupTelemetry(t *testing.T) {
 	tb.KafkaReceiverBytes.Add(context.Background(), 1)
 	tb.KafkaReceiverBytesUncompressed.Add(context.Background(), 1)
 	tb.KafkaReceiverLatency.Record(context.Background(), 1)
+	tb.KafkaReceiverMailboxDepth.Record(context.Background(), 1)
+	tb.KafkaReceiverMailboxQueueDuration.Record(context.Background(), 1)
 	tb.KafkaReceiverMessages.Add(context.Background(), 1)
 	tb.KafkaReceiverPartitionClose.Add(context.Background(), 1)
+	tb.KafkaReceiverPartitionPauseDuration.Record(context.Background(), 1)
+	tb.KafkaReceiverPartitionPaused.Record(context.Background(), 1)
 	tb.KafkaReceiverPartitionStart.Add(context.Background(), 1)
+	tb.KafkaReceiverProcessingRecords.Record(context.Background(), 1)
 	tb.KafkaReceiverReadLatency.Record(context.Background(), 1)
+	tb.KafkaReceiverRecordProcessingDuration.Record(context.Background(), 1)
 	tb.KafkaReceiverRecords.Add(context.Background(), 1)
 	tb.KafkaReceiverRecordsDelay.Record(context.Background(), 1)
+	tb.KafkaReceiverResumeToDataDuration.Record(context.Background(), 1)
 	tb.KafkaReceiverUnmarshalFailedLogRecords.Add(context.Background(), 1)
 	tb.KafkaReceiverUnmarshalFailedMetricPoints.Add(context.Background(), 1)
 	tb.KafkaReceiverUnmarshalFailedProfiles.Add(context.Background(), 1)
@@ -69,6 +76,12 @@ func TestSetupTelemetry(t *testing.T) {
 	AssertEqualKafkaReceiverLatency(t, testTel,
 		[]metricdata.HistogramDataPoint[int64]{{}}, metricdatatest.IgnoreValue(),
 		metricdatatest.IgnoreTimestamp())
+	AssertEqualKafkaReceiverMailboxDepth(t, testTel,
+		[]metricdata.DataPoint[int64]{{Value: 1}},
+		metricdatatest.IgnoreTimestamp())
+	AssertEqualKafkaReceiverMailboxQueueDuration(t, testTel,
+		[]metricdata.HistogramDataPoint[float64]{{}}, metricdatatest.IgnoreValue(),
+		metricdatatest.IgnoreTimestamp())
 	AssertEqualKafkaReceiverMessages(t, testTel,
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
@@ -78,16 +91,31 @@ func TestSetupTelemetry(t *testing.T) {
 	AssertEqualKafkaReceiverPartitionClose(t, testTel,
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
+	AssertEqualKafkaReceiverPartitionPauseDuration(t, testTel,
+		[]metricdata.HistogramDataPoint[float64]{{}}, metricdatatest.IgnoreValue(),
+		metricdatatest.IgnoreTimestamp())
+	AssertEqualKafkaReceiverPartitionPaused(t, testTel,
+		[]metricdata.DataPoint[int64]{{Value: 1}},
+		metricdatatest.IgnoreTimestamp())
 	AssertEqualKafkaReceiverPartitionStart(t, testTel,
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
+	AssertEqualKafkaReceiverProcessingRecords(t, testTel,
+		[]metricdata.DataPoint[int64]{{Value: 1}},
+		metricdatatest.IgnoreTimestamp())
 	AssertEqualKafkaReceiverReadLatency(t, testTel,
+		[]metricdata.HistogramDataPoint[float64]{{}}, metricdatatest.IgnoreValue(),
+		metricdatatest.IgnoreTimestamp())
+	AssertEqualKafkaReceiverRecordProcessingDuration(t, testTel,
 		[]metricdata.HistogramDataPoint[float64]{{}}, metricdatatest.IgnoreValue(),
 		metricdatatest.IgnoreTimestamp())
 	AssertEqualKafkaReceiverRecords(t, testTel,
 		[]metricdata.DataPoint[int64]{{Value: 1}},
 		metricdatatest.IgnoreTimestamp())
 	AssertEqualKafkaReceiverRecordsDelay(t, testTel,
+		[]metricdata.HistogramDataPoint[float64]{{}}, metricdatatest.IgnoreValue(),
+		metricdatatest.IgnoreTimestamp())
+	AssertEqualKafkaReceiverResumeToDataDuration(t, testTel,
 		[]metricdata.HistogramDataPoint[float64]{{}}, metricdatatest.IgnoreValue(),
 		metricdatatest.IgnoreTimestamp())
 	AssertEqualKafkaReceiverUnmarshalFailedLogRecords(t, testTel,
